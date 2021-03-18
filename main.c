@@ -67,7 +67,6 @@ const char* UNIT_NAMES[UNIT_LAST] = {
 };
 
 typedef enum {
-  NOTECH,
   CLIMBING,
     MEDITATION, PHILOSOPHY,
     MINING, SMITHERY,
@@ -87,7 +86,6 @@ typedef enum {
 } TechTypes;
 
 const char* TECH_NAMES[LAST_TECH] = {
-  0,
   "Climbing", "Meditation", "Philosophy", "Mining", "Smithery",
   "Fishing", "Whaling", "Aquatism", "Sailing", "Navigation",
   "Hunting", "Archery", "Spiritualism", "Forestry", "Mathematics",
@@ -761,18 +759,53 @@ byte gettechcost(byte tech) {
   return ncities * 3 * tier;
 }
 
+const byte ui_tech_x[] = { 0,0,20,0,20 };
+const byte ui_tech_y[] = { 0,1,1,2,2 };
+
 void ui_techtree() {
-  byte tech;
+  signed char tech;
+  byte x,y,j,k;
+  char ch;
   clrscr();
-  for (tech=1; tech<LAST_TECH; tech++) {
-    if ((1L<<tech) & player_tech[cur_player]) revers(1);
-    printf("%15s %2d  ", TECH_NAMES[tech], gettechcost(tech));
-    revers(0);
-    if ((tech-1) % 5 == 0) 
+  for (tech=0; tech<LAST_TECH; tech++) {
+    if ((1L<<tech) & player_tech[cur_player]) {
+      revers(1);
+      printf("%15s", TECH_NAMES[tech]);
+      revers(0);
+      printf("     ");
+    } else {
+      printf("%15s %2d  ", TECH_NAMES[tech], gettechcost(tech));
+    }
+    if (tech % 5 == 0) 
       printf("\n");
   }
   printf("\n\n");
-  cgetc();
+  gotoxy(0,22);
+  printf("Arrow keys to move, <ENTER> to buy\n<ESC> to exit");
+  tech = 0;
+  while (1) {
+    j = tech / 5;
+    k = tech % 5;
+    x = ui_tech_x[k];
+    y = ui_tech_y[k] + j*3;
+    gotoxy(0,18);
+    printf("%3d stars to spend", player_stars[cur_player]);
+    cputsxy(x,y,"-->");
+    ch = cgetc();
+    cputsxy(x,y,"   ");
+    switch (ch) {
+      case 0x08: --tech; break;
+      case 0x15: ++tech; break;
+      case 0x0b: tech -= k==1?1:2; break;
+      case 0x0a: tech += k==0?1:2; break;
+      case 27: return;
+      case 13:
+        // TODO
+        break;
+    }
+    if (tech >= LAST_TECH) tech -= LAST_TECH;
+    if (tech < 0) tech += LAST_TECH;
+  }
 }
 
 void playturn() {
@@ -906,11 +939,17 @@ void startturn(byte player) {
   } while (++i);
 }
 
+void initplayer(byte player) {
+  player_stars[player] = 0;
+  player_tech[player] = 1;
+}
+
 void createworld(byte plyrmask) {
   byte plyr;
   initworld();
   for (plyr=1; plyr<NPLAYERS; plyr++) {
     if (plyrmask & (1<<plyr)) {
+      initplayer(plyr);
       startturn(plyr);
       addcapitol(plyr);
     } else {
